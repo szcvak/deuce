@@ -1,0 +1,85 @@
+use std::collections::HashMap;
+use std::io::Read;
+use std::net::{TcpListener, TcpStream};
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use log::*;
+
+use crate::settings::Settings;
+
+pub struct ClientInfo {
+    stream: TcpStream,
+}
+
+pub struct Network<'a> {
+    settings: &'a Settings,
+    clients: Arc<Mutex<HashMap<String, ClientInfo>>>,
+
+    clients_count: Arc<AtomicUsize>,
+}
+
+impl<'a> Network<'a> {
+    pub fn new(settings: &'a Settings) -> Self {
+        Self {
+            settings,
+
+            clients: Arc::new(Mutex::new(HashMap::new())),
+            clients_count: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    pub fn start(&self) {
+        let listener = TcpListener::bind(format!("192.168.0.8:{}", self.settings.port))
+            .expect("deuce: could not bind to 0.0.0.0");
+
+        for stream in listener.incoming() {
+            if stream.is_err() {
+                error!("deuce: incoming stream is erroneous, will skip");
+                continue;
+            }
+
+            let mut stream = stream.unwrap();
+
+            let count = self.clients_count.fetch_add(1, Ordering::SeqCst) + 1;
+            let client_id = count.to_string();
+
+            info!("deuce: client connected. total: {}", count);
+
+            {
+                let mut clients = self.clients.lock().unwrap();
+                clients.insert(client_id.clone(), ClientInfo { stream: stream.try_clone().expect("deuce: failed to clone stream") });
+            }
+
+            std::thread::spawn(move || {
+                loop {
+                    let mut header = [0u8; 7];
+
+                    if let Err(e) = stream.read_exact(&mut header) {
+                        error!("deuce: failed to read stream header: {}", e);
+                        continue;
+                    }
+
+                    let packet_id = u16::from_be_bytes([header[0], header[1]]);
+                    let length = ((header[2] as u32) << 16) | ((header[3] as u32) << 8) | (header[4] as u32);
+                    let version = u16::from_be_bytes([header[5], header[6]]);
+
+                    let mut payload = vec![0u8; length as usize];
+
+                    if let Err(e) = stream.read_exact(&mut payload) {
+                        error!("deuce: failed to read payload: {}", e);
+                        break;
+                    }
+
+                    info!("deuce: received packet {} (bytes: {}, version: {})", packet_id, length, version);
+                }
+            });
+
+            self.clients_count.fetch_sub(1, Ordering::SeqCst);
+
+            let mut clients = self.clients.lock().unwrap();
+            clients.remove(&client_id);
+
+            info!("deuce: client disconnected. total: {}", self.clients_count.load(Ordering::SeqCst));
+        }
+    }
+}
