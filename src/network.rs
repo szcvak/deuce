@@ -29,7 +29,7 @@ impl<'a> Network<'a> {
     }
 
     pub fn start(&self) {
-        let listener = TcpListener::bind(format!("192.168.0.8:{}", self.settings.port))
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.settings.port))
             .expect("deuce: could not bind to 0.0.0.0");
 
         for stream in listener.incoming() {
@@ -56,7 +56,7 @@ impl<'a> Network<'a> {
 
                     if let Err(e) = stream.read_exact(&mut header) {
                         error!("deuce: failed to read stream header: {}", e);
-                        continue;
+                        break;
                     }
 
                     let packet_id = u16::from_be_bytes([header[0], header[1]]);
