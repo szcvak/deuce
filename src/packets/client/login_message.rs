@@ -1,8 +1,11 @@
+use std::sync::{Arc, Mutex};
 use crate::packets::packet::{ClientPacket, ServerPacket};
 use crate::reader::{ByteReader, DecodeError};
 use log::*;
+use crate::database::Database;
 use crate::device::Device;
 use crate::packets::server::{LoginFailedMessage, LoginOkMessage};
+use crate::player::Player;
 
 #[derive(Default, Debug)]
 pub struct LoginMessage {
@@ -51,13 +54,20 @@ impl ClientPacket for LoginMessage {
         Ok(())
     }
 
-    fn process(&mut self, device: &mut Device) {
-        info!("Requested processing for LoginMessage. Sending LoginFailedMessage.");
+    fn process(&mut self, device: &mut Device, player: &mut Player, database: &mut Arc<Mutex<Database>>) {
+        let mut db = database.lock().unwrap();
 
-        /* let mut msg = LoginFailedMessage::new(self, " ".to_string(), 8);
-        let encoded = msg.encode();
+        if !db.token_exists(self.token.clone()) {
+            player.token = Some(self.token.clone());
+            player.low_id = db.get_free_id();
 
-        device.send(msg.id, encoded, 0); */
+            db.create_player(player).expect("deuce: failed to create player");
+        }
+        
+        player.high_id = self.high_id;
+        player.low_id = self.low_id;
+        player.token = Some(self.token.clone());
+        player.region = self.region.clone();
 
         let mut msg = LoginOkMessage::new(self);
         let encoded = msg.encode();

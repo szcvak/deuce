@@ -1,2 +1,3 @@
 key = "dzkQVprCMdfIfoa6dGTvz26xCtBB3pizpp2goq"
+database = "postgres://postgres:admin@localhost/deuce"
 port = 9339

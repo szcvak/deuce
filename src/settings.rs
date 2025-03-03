@@ -5,6 +5,7 @@ use serde::Deserialize;
 pub struct Settings {
     pub key: String,
     pub port: u32,
+    pub database: String,
 }
 
 impl Settings {

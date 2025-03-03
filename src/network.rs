@@ -5,8 +5,10 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use bytes::Bytes;
 use log::*;
+use crate::database::Database;
 use crate::device::Device;
 use crate::packets::client::create_packet;
+use crate::player::Player;
 use crate::reader::ByteReader;
 use crate::settings::Settings;
 
@@ -19,21 +21,31 @@ pub struct Network<'a> {
     clients: Arc<Mutex<HashMap<String, ClientInfo>>>,
 
     clients_count: Arc<AtomicUsize>,
+    database: Arc<Mutex<Database>>,
 }
 
 impl<'a> Network<'a> {
     pub fn new(settings: &'a Settings) -> Self {
+        let db = Database::new(settings.database.as_str());
+        
         Self {
             settings,
 
             clients: Arc::new(Mutex::new(HashMap::new())),
             clients_count: Arc::new(AtomicUsize::new(0)),
+            
+            database: Arc::new(Mutex::new(db)),
         }
     }
 
     pub fn start(&self) {
         let listener = TcpListener::bind(format!("0.0.0.0:{}", self.settings.port))
             .expect("deuce: could not bind to 0.0.0.0");
+
+        {
+            let mut database = self.database.lock().unwrap();
+            database.create_default();
+        }
 
         for stream in listener.incoming() {
             if stream.is_err() {
@@ -54,9 +66,11 @@ impl<'a> Network<'a> {
             }
 
             let mut device = Device::new(self.settings, stream.try_clone().unwrap(), Arc::clone(&self.clients));
+            let mut player = Player::new();
 
             let clients = Arc::clone(&self.clients);
             let clients_count = Arc::clone(&self.clients_count);
+            let mut database = Arc::clone(&self.database);
 
             std::thread::spawn(move || {
                 loop {
@@ -88,7 +102,7 @@ impl<'a> Network<'a> {
                         if let Err(e) = packet.decode(&mut reader) {
                             error!("deuce: failed to decode packet {}: {:?}", packet_id, e);
                         } else {
-                            packet.process(&mut device);
+                            packet.process(&mut device, &mut player, &mut database);
                         }
                     }
                 }
