@@ -113,6 +113,11 @@ impl ByteWriter {
         self.offset += final_bytes.len();
     }
 
+    pub fn write_long(&mut self, high: i32, low: i32) {
+        self.write_int(high);
+        self.write_int(low);
+    }
+
     pub fn write_long_long(&mut self, value: i64) {
         let high = (value >> 32) as i32;
         let low = (value & 0xFFFFFFFF) as i32;

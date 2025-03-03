@@ -1,3 +1,3 @@
 pub mod server;
 pub mod client;
-mod packet;
+pub mod packet;
