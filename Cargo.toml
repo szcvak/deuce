@@ -1,0 +1,11 @@
+[package]
+name = "deuce"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bytes = "1.10.0"
+log = "0.4.26"
+env_logger = "0.11.6"
+serde = { version = "1.0.218", features = ["derive"] }
+config = { version = "0.15.8", features = ["toml"] }
