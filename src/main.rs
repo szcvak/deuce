@@ -5,6 +5,7 @@ mod settings;
 mod reader;
 mod writer;
 mod packets;
+mod device;
 
 use config::Config;
 use log::*;

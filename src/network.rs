@@ -3,8 +3,11 @@ use std::io::Read;
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use bytes::Bytes;
 use log::*;
-
+use crate::device::Device;
+use crate::packets::client::create_packet;
+use crate::reader::ByteReader;
 use crate::settings::Settings;
 
 pub struct ClientInfo {
@@ -50,6 +53,11 @@ impl<'a> Network<'a> {
                 clients.insert(client_id.clone(), ClientInfo { stream: stream.try_clone().expect("deuce: failed to clone stream") });
             }
 
+            let mut device = Device::new(self.settings, stream.try_clone().unwrap(), Arc::clone(&self.clients));
+
+            let clients = Arc::clone(&self.clients);
+            let clients_count = Arc::clone(&self.clients_count);
+
             std::thread::spawn(move || {
                 loop {
                     let mut header = [0u8; 7];
@@ -71,15 +79,27 @@ impl<'a> Network<'a> {
                     }
 
                     info!("deuce: received packet {} (bytes: {}, version: {})", packet_id, length, version);
+
+                    device.decrypt(&mut payload);
+
+                    let mut reader = ByteReader::from(Bytes::from(payload));
+
+                    if let Some(mut packet) = create_packet(packet_id) {
+                        if let Err(e) = packet.decode(&mut reader) {
+                            error!("deuce: failed to decode packet {}: {:?}", packet_id, e);
+                        } else {
+                            packet.process();
+                        }
+                    }
                 }
+
+                clients_count.fetch_sub(1, Ordering::SeqCst);
+
+                let mut map = clients.lock().unwrap();
+                map.remove(&client_id);
+
+                info!("deuce: client disconnected. total: {}", clients_count.load(Ordering::SeqCst));
             });
-
-            self.clients_count.fetch_sub(1, Ordering::SeqCst);
-
-            let mut clients = self.clients.lock().unwrap();
-            clients.remove(&client_id);
-
-            info!("deuce: client disconnected. total: {}", self.clients_count.load(Ordering::SeqCst));
         }
     }
 }
