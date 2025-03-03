@@ -88,7 +88,7 @@ impl<'a> Network<'a> {
                         if let Err(e) = packet.decode(&mut reader) {
                             error!("deuce: failed to decode packet {}: {:?}", packet_id, e);
                         } else {
-                            packet.process();
+                            packet.process(&mut device);
                         }
                     }
                 }

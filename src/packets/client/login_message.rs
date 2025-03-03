@@ -1,6 +1,8 @@
-use crate::packets::packet::ClientPacket;
+use crate::packets::packet::{ClientPacket, ServerPacket};
 use crate::reader::{ByteReader, DecodeError};
 use log::*;
+use crate::device::Device;
+use crate::packets::server::LoginFailedMessage;
 
 #[derive(Default, Debug)]
 pub struct LoginMessage {
@@ -49,7 +51,12 @@ impl ClientPacket for LoginMessage {
         Ok(())
     }
 
-    fn process(&mut self) {
-        info!("Requested processing for LoginMessage");
+    fn process(&mut self, device: &mut Device) {
+        info!("Requested processing for LoginMessage. Sending LoginFailedMessage.");
+        
+        let mut msg = LoginFailedMessage::new(self, " ".to_string(), 8);
+        let encoded = msg.encode();
+        
+        device.send(msg.id, encoded, 0);
     }
 }

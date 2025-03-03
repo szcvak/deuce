@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use crate::network::ClientInfo;
@@ -45,5 +46,26 @@ impl Device {
 
     pub fn encrypt(&mut self, data: &mut [u8]) {
         self.encryptor.process(data);
+    }
+
+    pub fn send(&mut self, packet_id: u16, mut data: Vec<u8>, version: u16) {
+        let binding = data.as_mut_slice();
+        self.encrypt(binding);
+        
+        let mut packet = Vec::new();
+        packet.extend_from_slice(&packet_id.to_be_bytes());
+        
+        let length = packet.len();
+        let bytes = [
+            ((length >> 16) & 0xff) as u8,
+            ((length >> 8) & 0xff) as u8,
+            (length & 0xff) as u8,
+        ];
+
+        packet.extend_from_slice(&bytes);
+        packet.extend_from_slice(&version.to_be_bytes());
+        packet.extend_from_slice(binding);
+        
+        self.stream.write_all(&packet).unwrap();
     }
 }
