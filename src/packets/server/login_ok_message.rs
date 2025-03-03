@@ -20,16 +20,16 @@ impl<'a> ServerPacket for LoginOkMessage<'a> {
     fn encode(&mut self) -> Vec<u8> {
         let mut writer = ByteWriter::new();
         
-        writer.write_long(self.payload.high_id, self.payload.low_id);
-        writer.write_long(self.payload.high_id, self.payload.low_id);
+        writer.write_long(self.payload.high_id as i32, self.payload.low_id as i32);
+        writer.write_long(self.payload.high_id as i32, self.payload.low_id as i32);
 
         writer.write_string(Some(self.payload.token.as_str()));
         writer.write_string(Some("467606826913688"));
         writer.write_string(Some("G:325378671"));
         
-        writer.write_int(self.payload.major_version);
-        writer.write_int(self.payload.minor_version);
-        writer.write_int(self.payload.build);
+        writer.write_int(self.payload.major_version as i32);
+        writer.write_int(self.payload.minor_version as i32);
+        writer.write_int(self.payload.build as i32);
         
         writer.write_string(Some("-dev"));
         
