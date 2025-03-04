@@ -125,4 +125,27 @@ impl ByteWriter {
         self.write_int(high);
         self.write_int(low);
     }
+
+    pub fn write_sc_id(&mut self, high: i32, low: i32) {
+        self.write_vint(high);
+
+        if high != 0 {
+            self.write_vint(low);
+        }
+    }
+
+    pub fn write_vlong(&mut self, high: i32, low: i32) {
+        self.bitoffset = 0;
+
+        self.write_vint(high);
+        self.write_vint(low);
+    }
+
+    pub fn write_array_vint(&mut self, data: Vec<i32>) {
+        self.write_vint(data.len() as i32);
+
+        for x in data {
+            self.write_vint(x);
+        }
+    }
 }

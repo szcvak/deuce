@@ -3,7 +3,8 @@ use r2d2_postgres::{postgres::NoTls, PostgresConnectionManager};
 
 use log::*;
 use serde::{Deserialize, Serialize};
-use crate::player::Player;
+use crate::player::*;
+use std::collections::HashMap;
 
 pub type DbPool = Pool<PostgresConnectionManager<NoTls>>;
 pub type DbConn = PooledConnection<PostgresConnectionManager<NoTls>>;
@@ -14,30 +15,32 @@ pub struct Database {
 
 #[derive(Serialize, Deserialize)]
 pub struct PlayerInfo {
-    name: String,
-    low_id: u32,
-    club_id: u32,
-    club_role: u32,
-    player_experience: u32,
-    solo_wins: u32,
-    duo_wins: u32,
-    three_x_there_wins: u32,
-    gems: u32,
-    gold: u32,
-    elixir: u32,
-    chips: u32,
-    coins_reward: u32,
-    coins_doubler: u32,
-    coins_booster: u32,
-    trophies: u32,
-    highest_trophies: u32,
-    profile_icon: u32,
-    room_id: u32,
-    last_connection_time: u32,
-    player_status: u32,
-    region: String,
-    control_mode: u32,
-    has_battle_hints: bool,
+    pub name: String,
+    pub low_id: u32,
+    pub club_id: u32,
+    pub club_role: u32,
+    pub player_experience: u32,
+    pub solo_wins: u32,
+    pub duo_wins: u32,
+    pub three_x_three_wins: u32,
+    pub gems: u32,
+    pub gold: u32,
+    pub elixir: u32,
+    pub chips: u32,
+    pub coins_doubler: u32,
+    pub coins_booster: u32,
+    pub trophies: u32,
+    pub highest_trophies: u32,
+    pub profile_icon: u32,
+    pub room_id: u32,
+    pub last_connection_time: u32,
+    pub player_status: u32,
+    pub region: String,
+    pub control_mode: u32,
+    pub has_battle_hints: bool,
+    pub unlocked_brawlers: HashMap<i32, BrawlerData>,
+    pub coins_reward: i32,
+    pub event_count: i32,
 }
 
 impl Database {
@@ -106,6 +109,20 @@ impl Database {
         ).expect("deuce: failed to execute sql");
     }
 
+    pub fn load_player(&mut self, player: &Player) -> Result<PlayerInfo, Box<dyn std::error::Error>> {
+        let mut conn = self.get_conn();
+
+        let result = conn.query_one(
+            "SELECT data FROM players WHERE token = $1",
+            &[&player.token.clone().unwrap()]
+        ).expect("deuce: failed to execute sql");
+
+        let data = result.get::<&str, String>("data");
+        let prepared: PlayerInfo = serde_json::from_str(&data).unwrap();
+
+        Ok(prepared)
+    }
+
     pub fn create_player(&mut self, player: &Player) -> Result<(), &'static str> {
         if player.token.is_none() {
             error!("deuce: cannot create account if player's token is None");
@@ -119,7 +136,7 @@ impl Database {
             &[&player.token.clone().unwrap()]
         ).expect("deuce: failed to execute sql");
 
-        if result.get::<&str, u32>("count") > 0 {
+        if result.get::<&str, i64>("count") > 0 {
             error!("deuce: player with token already exists, will not create: {}", player.token.clone().unwrap());
             return Err("Player already exists");
         }
@@ -132,12 +149,11 @@ impl Database {
             player_experience: player.player_experience,
             solo_wins: player.solo_wins,
             duo_wins: player.duo_wins,
-            three_x_there_wins: player.three_x_there_wins,
+            three_x_three_wins: player.three_x_three_wins,
             gems: player.gems,
             gold: player.gold,
             elixir: player.elixir,
             chips: player.chips,
-            coins_reward: 0,
             coins_doubler: player.coins_doubler,
             coins_booster: player.coins_booster,
             trophies: player.trophies,
@@ -149,6 +165,9 @@ impl Database {
             region: player.region.clone(),
             control_mode: player.control_mode,
             has_battle_hints: false,
+            unlocked_brawlers: player.unlocked_brawlers.clone(),
+            coins_reward: player.coins_reward,
+            event_count: player.event_count,
         };
         
         let serialized = serde_json::to_string(&info).expect("deuce: failed to serialize player info");
@@ -169,14 +188,14 @@ impl Database {
             &[&token.clone()]
         ).expect("deuce: failed to execute sql");
 
-        if result.get::<&str, u32>("count") > 0 {
+        if result.get::<&str, i64>("count") > 0 {
             return true;
         }
         
         false
     }
     
-    pub fn get_free_id(&self) -> u32 {
+    pub fn get_free_id(&self) -> i64 {
         let mut conn = self.get_conn();
         
         let result = conn.query_one(
@@ -184,7 +203,7 @@ impl Database {
             &[]
         ).expect("deuce: failed to execute sql");
         
-        result.get::<&str, u32>("count") + 1
+        result.get::<&str, i64>("count") + 1
     }
 
     pub fn get_conn(&self) -> DbConn {

@@ -4,8 +4,9 @@ use crate::reader::{ByteReader, DecodeError};
 use log::*;
 use crate::database::Database;
 use crate::device::Device;
-use crate::packets::server::{LoginFailedMessage, LoginOkMessage};
+use crate::packets::server::{LoginFailedMessage, LoginOkMessage, HomeDataMessage, MyAllianceMessage, ClanStreamMessage};
 use crate::player::Player;
+use crate::settings::*;
 
 #[derive(Default, Debug)]
 pub struct LoginMessage {
@@ -54,12 +55,12 @@ impl ClientPacket for LoginMessage {
         Ok(())
     }
 
-    fn process(&mut self, device: &mut Device, player: &mut Player, database: &mut Arc<Mutex<Database>>) {
+    fn process(&mut self, device: &mut Device, player: &mut Player, database: &mut Arc<Mutex<Database>>, settings: &Settings) {
         let mut db = database.lock().unwrap();
 
         if !db.token_exists(self.token.clone()) {
             player.token = Some(self.token.clone());
-            player.low_id = db.get_free_id();
+            player.low_id = db.get_free_id() as u32;
 
             db.create_player(player).expect("deuce: failed to create player");
         }
@@ -69,9 +70,20 @@ impl ClientPacket for LoginMessage {
         player.token = Some(self.token.clone());
         player.region = self.region.clone();
 
+        let info = db.load_player(player).unwrap();
+
         let mut msg = LoginOkMessage::new(self);
         let encoded = msg.encode();
 
         device.send(msg.id, encoded, 1);
+
+        let mut home = HomeDataMessage::new(player, &info, &settings);
+        device.send(home.id, home.encode(), 0);
+
+        let mut clan = ClanStreamMessage::new();
+        device.send(clan.id, clan.encode(), 0);
+
+        let mut alliance = MyAllianceMessage::new();
+        device.send(alliance.id, alliance.encode(), 0);
     }
 }

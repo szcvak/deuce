@@ -16,20 +16,20 @@ pub struct ClientInfo {
     stream: TcpStream,
 }
 
-pub struct Network<'a> {
-    settings: &'a Settings,
+pub struct Network {
+    settings: Arc<Settings>,
     clients: Arc<Mutex<HashMap<String, ClientInfo>>>,
 
     clients_count: Arc<AtomicUsize>,
     database: Arc<Mutex<Database>>,
 }
 
-impl<'a> Network<'a> {
-    pub fn new(settings: &'a Settings) -> Self {
+impl Network {
+    pub fn new(settings: Settings) -> Self {
         let db = Database::new(settings.database.as_str());
         
         Self {
-            settings,
+            settings: Arc::new(settings),
 
             clients: Arc::new(Mutex::new(HashMap::new())),
             clients_count: Arc::new(AtomicUsize::new(0)),
@@ -65,12 +65,13 @@ impl<'a> Network<'a> {
                 clients.insert(client_id.clone(), ClientInfo { stream: stream.try_clone().expect("deuce: failed to clone stream") });
             }
 
-            let mut device = Device::new(self.settings, stream.try_clone().unwrap(), Arc::clone(&self.clients));
+            let mut device = Device::new(self.settings.clone(), stream.try_clone().unwrap(), Arc::clone(&self.clients));
             let mut player = Player::new();
 
             let clients = Arc::clone(&self.clients);
             let clients_count = Arc::clone(&self.clients_count);
             let mut database = Arc::clone(&self.database);
+            let settings = Arc::clone(&self.settings);
 
             std::thread::spawn(move || {
                 loop {
@@ -102,7 +103,7 @@ impl<'a> Network<'a> {
                         if let Err(e) = packet.decode(&mut reader) {
                             error!("deuce: failed to decode packet {}: {:?}", packet_id, e);
                         } else {
-                            packet.process(&mut device, &mut player, &mut database);
+                            packet.process(&mut device, &mut player, &mut database, &settings);
                         }
                     }
                 }

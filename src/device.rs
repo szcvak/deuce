@@ -15,7 +15,7 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn new(settings: &Settings, stream: TcpStream, clients: Arc<Mutex<HashMap<String, ClientInfo>>>) -> Self {
+    pub fn new(settings: Arc<Settings>, stream: TcpStream, clients: Arc<Mutex<HashMap<String, ClientInfo>>>) -> Self {
         let binding = settings.key.clone();
         let key = binding.as_bytes();
         let nonce = b"nonce";

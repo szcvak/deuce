@@ -6,6 +6,7 @@ pub struct Settings {
     pub key: String,
     pub port: u32,
     pub database: String,
+    pub max_rank: u32,
 }
 
 impl Settings {

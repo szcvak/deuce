@@ -8,6 +8,10 @@ mod packets;
 mod device;
 mod database;
 mod player;
+mod csv_logic;
+mod math;
+mod checksum;
+mod milestones;
 
 use config::Config;
 use log::*;
@@ -22,6 +26,6 @@ fn main() {
 
     info!("started server on 0.0.0.0:{}", settings.port);
 
-    let server = Network::new(&settings);
+    let server = Network::new(settings);
     server.start();
 }

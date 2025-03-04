@@ -1,3 +1,4 @@
 key = "dzkQVprCMdfIfoa6dGTvz26xCtBB3pizpp2goq"
-database = "postgres://postgres:admin@localhost/deuce"
+database = "postgres://deuce:admin@localhost/deuce"
 port = 9339
+max_rank = 20
